@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Your Name
+ * Copyright (c) 2024 Mishari Alsabih
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,12 +16,48 @@ module tt_um_example (
     input  wire       rst_n     // reset_n - low to reset
 );
 
-  // All output pins must be assigned. If not used, assign to 0.
-  assign uo_out  = ui_in + uio_in;  // Example: ou_out is the sum of ui_in and uio_in
-  assign uio_out = 0;
-  assign uio_oe  = 0;
+      // Frequency encoder using an 8-bit phase accumulator
+  reg  [8:0] acc;       
+  reg        spike;
+  reg [7:0] win_ctr;     
+  reg [7:0] spike_ctr;   
+  reg [7:0] decoded;    
+  wire [8:0] sum;
+  assign sum = acc + {1'b0, ui_in};
 
-  // List all unused inputs to prevent warnings
-  wire _unused = &{ena, clk, rst_n, 1'b0};
+  // Drive outputs
+  assign uo_out  = {decoded[7:1], spike};
+  assign uio_out = 8'b0;
+  assign uio_oe  = 8'b0;
+
+  always @(posedge clk) begin
+    if (!rst_n) begin
+      acc   <= 9'd0;
+      spike <= 1'b0;
+      win_ctr   <= 8'd0;
+      spike_ctr <= 8'd0;
+      decoded   <= 8'd0;
+    end else begin
+      // overflow generates a spike
+      acc   <= sum;
+      spike <= sum[8];
+      win_ctr <= win_ctr + 8'd1;
+
+      if (sum[8])
+        spike_ctr <= spike_ctr + 8'd1;
+
+      if (win_ctr == 8'hFF) begin
+        decoded   <= spike_ctr;
+        spike_ctr <= 8'd0;
+        win_ctr   <= 8'd0;
+      end
+    end
+  end
+
+  
+  wire _unused = &{ena, uio_in, 1'b0};
+ 
 
 endmodule
+
+
